@@ -21,64 +21,98 @@ public class Haar_Waves // Transformée en ondelette de Haar
     public Haar_Waves(Vector signal, int pct_smooth = 0){
         Console.WriteLine("//////////////////////////////////// Haar ////////////////////////////////////////////");
         haar_len = haar_coef_somme.VecSize();
-        Console.WriteLine("Début signal");
-        signal.VecDisp();
-        Console.WriteLine("Fin signal");
-        trans_signal = W_haar(signal);
-        Console.WriteLine("Début signal transformé");
-        trans_signal.VecDisp();
-        Console.WriteLine("Fin signal transformé");
-        invtrans_signal = W_haar_inverse(trans_signal);
-        Console.WriteLine("Début signal transformé inverse");
-        invtrans_signal.VecDisp();
-        Console.WriteLine("Fin signal transformé inverse");
-        smooth_haar = Smooth_haar(signal,pct_smooth);
-        Console.WriteLine("Début signal débruité");
-        smooth_haar.VecDisp();
-        Console.WriteLine("Fin signal débruité");
-        smooth_haar_multi = Smooth_haar_multi(signal,(int)Math.Log2(signal.VecSize()-1),pct_smooth);
-        Console.WriteLine("Début signal débruité multi");
-        smooth_haar_multi.VecDisp();
-        Console.WriteLine("Fin signal débruité multi");
+        trans_signal = W_haar(new([]));
+        invtrans_signal = W_haar_inverse(new([]));
+        smooth_haar = Smooth_haar(new([]),0);
+        smooth_haar_multi = Smooth_haar_multi(new([]),0,0);
+        try{
+            Console.WriteLine("Début signal");
+            signal.VecDisp();
+            Console.WriteLine("Fin signal");
+            if(signal.VecSize() < 2 || Math.Log2(signal.VecSize()) != (int)Math.Ceiling(Math.Log2(signal.VecSize()))) {
+                Console.WriteLine("The size of the vector is not a power of 2 so it does not work");
+            }
+            else{
+                trans_signal = W_haar(signal);
+                Console.WriteLine("Début signal transformé");
+                trans_signal.VecDisp();
+                Console.WriteLine("Fin signal transformé");
+                invtrans_signal = W_haar_inverse(trans_signal);
+                Console.WriteLine("Début signal transformé inverse");
+                invtrans_signal.VecDisp();
+                Console.WriteLine("Fin signal transformé inverse");
+                smooth_haar = Smooth_haar(signal,pct_smooth);
+                Console.WriteLine("Début signal débruité");
+                smooth_haar.VecDisp();
+                Console.WriteLine("Fin signal débruité");
+                if(signal.VecSize() >= 4){
+                    smooth_haar_multi = Smooth_haar_multi(signal,(int)Math.Log2(signal.VecSize()-1),pct_smooth);
+                    Console.WriteLine("Début signal débruité multi");
+                    smooth_haar_multi.VecDisp();
+                    Console.WriteLine("Fin signal débruité multi");
+                }
+                else{
+                    Console.WriteLine("The size of the vector is not superior to 4 so the multilevel transformation does not work");
+                }
+            }
+        }
+        catch(Exception ex){
+            Console.WriteLine(ex.GetType().FullName);
+            Console.WriteLine(ex.Message);
+            Console.WriteLine(ex.StackTrace);
+        }
         Console.WriteLine("//////////////////////////////////////////////////////////////////////////////////////");
     }
 
     // Cette fonction permet de faire une transformée avec une ondelette de Haar
     private Vector W_haar(Vector signal){
-        // Nous divisions le signal en plusieurs pairs de nombres
-        Vector[] pairs = signal.Split(Vector.Linspace(signal.VecSize()/haar_len,haar_len));
-        // Nous faisons un produit matriciel de ces pairs avec les coefficient de Haar
-        Vector tab_somme = new(pairs.Select(v => haar_coef_somme.VecDot(v)).ToArray());
-        Vector tab_soustraction = new(pairs.Select(v => haar_coef_soustraction.VecDot(v)).ToArray());
-        // Nous renvoyons enfin le résultat de ces produits concaténés
-        return tab_somme.VecCon(tab_soustraction);
+        Vector ret = new([]);
+        if(signal.VecSize() > 1 && Math.Log2(signal.VecSize()) == (int)Math.Ceiling(Math.Log2(signal.VecSize()))){
+            // Nous divisions le signal en plusieurs pairs de nombres
+            Vector[] pairs = signal.Split(Vector.Linspace(signal.VecSize()/haar_len,haar_len));
+            // Nous faisons un produit matriciel de ces pairs avec les coefficient de Haar
+            Vector tab_somme = new(pairs.Select(v => haar_coef_somme.VecDot(v)).ToArray());
+            Vector tab_soustraction = new(pairs.Select(v => haar_coef_soustraction.VecDot(v)).ToArray());
+            // Nous renvoyons enfin le résultat de ces produits concaténés
+            ret = tab_somme.VecCon(tab_soustraction);
+        }
+        
+        return ret;
     }
 
     // Cette fonction permet de faire une transformée inverse avec une ondelette de Haar
     private Vector W_haar_inverse(Vector signal){
-        // Nous divisons le signal transformée en plusieurs singletons
-        Vector[] coefs = signal.Split(Vector.Linspace(signal.VecSize(),1));
-        // Nous multiplions chaque singleton de la première moitié du tableau splitté par les coefficients de somme de Haar 
-        Vector[] tab_somme_inverse = coefs[0..(signal.VecSize()/2)].Select(v => v[0]*haar_coef_somme).ToArray();
-        // Nous multiplions chaque singleton de la seconde moitié du tableau splitté par les coefficients de différence de Haar
-        Vector[] tab_soustraction_inverse = coefs[(signal.VecSize()/2)..signal.VecSize()].Select(v => v[0]*haar_coef_soustraction).ToArray();
-        // Nous additionnons les deux matrices obtenues
-        Vector[] result = Vector.SumTabVec(tab_somme_inverse,tab_soustraction_inverse);
-        // Nous pouvons ensuite retourner le signal d'origine
         Vector ret = new([]);
-        foreach(Vector v in result){
-            ret = ret.VecCon(v);
+        if(signal.VecSize() > 1 && Math.Log2(signal.VecSize()) == (int)Math.Ceiling(Math.Log2(signal.VecSize()))){
+            // Nous divisons le signal transformée en plusieurs singletons
+            Vector[] coefs = signal.Split(Vector.Linspace(signal.VecSize(),1));
+            // Nous multiplions chaque singleton de la première moitié du tableau splitté par les coefficients de somme de Haar 
+            Vector[] tab_somme_inverse = coefs[0..(signal.VecSize()/2)].Select(v => v[0]*haar_coef_somme).ToArray();
+            // Nous multiplions chaque singleton de la seconde moitié du tableau splitté par les coefficients de différence de Haar
+            Vector[] tab_soustraction_inverse = coefs[(signal.VecSize()/2)..signal.VecSize()].Select(v => v[0]*haar_coef_soustraction).ToArray();
+            // Nous additionnons les deux matrices obtenues
+            Vector[] result = Vector.SumTabVec(tab_somme_inverse,tab_soustraction_inverse);
+            // Nous pouvons ensuite retourner le signal d'origine
+            foreach(Vector v in result){
+                ret = ret.VecCon(v);
+            }
         }
+
         return ret;
     }
 
     private Vector Smooth_haar(Vector signal, int pourcentage_nb){
-        // Nous faisons d'abord une transformée du signal
-        Vector z = W_haar(signal);
-        // Puis nous mettons à 0 les valeurs qui sont inférieurs à un certain seuil
-        Vector z_deb = z.MinSignal(0,(int)Math.Ceiling((double)pourcentage_nb*signal.VecSize()/100));
-        // Enfin nous retournons la transformée inverse du signal débruité
-        return W_haar_inverse(z_deb);
+        Vector ret = new([]);
+        if(signal.VecSize() > 1 && pourcentage_nb >= 0 && Math.Log2(signal.VecSize()) == (int)Math.Ceiling(Math.Log2(signal.VecSize()))){
+            // Nous faisons d'abord une transformée du signal
+            Vector z = W_haar(signal);
+            // Puis nous mettons à 0 les valeurs qui sont inférieurs à un certain seuil
+            Vector z_deb = z.MinSignal(0,(int)Math.Ceiling((double)pourcentage_nb*signal.VecSize()/100));
+            // Enfin nous retournons la transformée inverse du signal débruité
+            ret = W_haar_inverse(z_deb);
+        }
+    
+        return ret;
     }
 
     // Cette fonction permet de faire une transformée en ondelette multiple. Elle est récursive.
@@ -161,14 +195,19 @@ public class Haar_Waves // Transformée en ondelette de Haar
     }
 
     private Vector Smooth_haar_multi(Vector signal,int level,int pourcentage_nb){
-        // Tout d'abord, nous calculons la transformée en ondelette multiple du signal
-        Vector z=Transformee_multi(signal,level);
-        /*
-            Puis nous mettons à 0 tous les éléments du signal transformée dont la valeur absolue 
-            est inférieur à un seuil arbitraire
-        */
-        Vector z_deb=z.MinSignal(0,(int)Math.Ceiling((double)pourcentage_nb*signal.VecSize()/100));
-        // Enfin nous retournons le signal débruité après avoir fait une transformée inverse
-        return Trans_inverse(z_deb,level,new([]),0);
+        Vector ret = new([]);
+        if(signal.VecSize() >= 4 && level > 0 && pourcentage_nb >= 0 && Math.Log2(signal.VecSize()) == (int)Math.Ceiling(Math.Log2(signal.VecSize()))){
+            // Tout d'abord, nous calculons la transformée en ondelette multiple du signal
+            Vector z=Transformee_multi(signal,level);
+            /*
+                Puis nous mettons à 0 tous les éléments du signal transformée dont la valeur absolue 
+                est inférieur à un seuil arbitraire
+            */
+            Vector z_deb=z.MinSignal(0,(int)Math.Ceiling((double)pourcentage_nb*signal.VecSize()/100));
+            // Enfin nous retournons le signal débruité après avoir fait une transformée inverse
+            ret = Trans_inverse(z_deb,level,new([]),0);
+        }
+        
+        return ret;
     }
 }

@@ -21,25 +21,46 @@ public class Daub_Waves // Transformée en ondelette de daubechie
     public Daub_Waves(Vector signal, int pct_smooth = 0){
         Console.WriteLine("/////////////////////////////// Daubechie ////////////////////////////////////////////");
         daub_len = daub_coef_somme.VecSize();
-        Console.WriteLine("Début signal");
-        signal.VecDisp();
-        Console.WriteLine("Fin signal");
-        trans_signal = Daubechie_transform(signal);
-        Console.WriteLine("Début signal transformé");
-        trans_signal.VecDisp();
-        Console.WriteLine("Fin signal transformé");
-        invtrans_signal = Daubechie_transform_inverse(trans_signal);
-        Console.WriteLine("Début signal transformé inverse");
-        invtrans_signal.VecDisp();
-        Console.WriteLine("Fin signal transformé inverse");
-        smooth_daub = Smooth_daubechie(signal,pct_smooth);
-        Console.WriteLine("Début signal débruité");
-        smooth_daub.VecDisp();
-        Console.WriteLine("Fin signal débruité");
-        smooth_daub_multi = Smooth_daubechie_multi(signal,(int)Math.Log2(signal.VecSize()-1),pct_smooth);
-        Console.WriteLine("Début signal débruité multi");
-        smooth_daub_multi.VecDisp();
-        Console.WriteLine("Fin signal débruité multi");
+        trans_signal = Daubechie_transform(new([]));
+        invtrans_signal = Daubechie_transform_inverse(new([]));
+        smooth_daub = Smooth_daubechie(new([]),0);
+        smooth_daub_multi = Smooth_daubechie_multi(new([]),0,0);
+        try{
+            Console.WriteLine("Début signal");
+            signal.VecDisp();
+            Console.WriteLine("Fin signal");
+            if(signal.VecSize() < 2 || Math.Log2(signal.VecSize()) != (int)Math.Ceiling(Math.Log2(signal.VecSize()))) {
+                Console.WriteLine("The size of the vector is not a power of 2 so it does not work");
+            }
+            else{
+                trans_signal = Daubechie_transform(signal);
+                Console.WriteLine("Début signal transformé");
+                trans_signal.VecDisp();
+                Console.WriteLine("Fin signal transformé");
+                invtrans_signal = Daubechie_transform_inverse(trans_signal);
+                Console.WriteLine("Début signal transformé inverse");
+                invtrans_signal.VecDisp();
+                Console.WriteLine("Fin signal transformé inverse");
+                smooth_daub = Smooth_daubechie(signal,pct_smooth);
+                Console.WriteLine("Début signal débruité");
+                smooth_daub.VecDisp();
+                Console.WriteLine("Fin signal débruité");
+                if(signal.VecSize() >= 4){
+                    smooth_daub_multi = Smooth_daubechie_multi(signal,(int)Math.Log2(signal.VecSize()-1),pct_smooth);
+                    Console.WriteLine("Début signal débruité multi");
+                    smooth_daub_multi.VecDisp();
+                    Console.WriteLine("Fin signal débruité multi");
+                }
+                else{
+                    Console.WriteLine("The size of the vector is not superior to 4 so the multilevel transformation does not work");
+                }
+            }
+        }
+        catch(Exception ex){
+            Console.WriteLine(ex.GetType().FullName);
+            Console.WriteLine(ex.Message);
+            Console.WriteLine(ex.StackTrace);
+        }
         Console.WriteLine("//////////////////////////////////////////////////////////////////////////////////////");
     }
 
@@ -97,17 +118,12 @@ public class Daub_Waves // Transformée en ondelette de daubechie
     }
 
     // La fonction daubechie_transform permet de calculer la transformée en ondelette de daubechie d'un signal
-    private Vector Daubechie_transform(Vector signal){
         /*
             Cette fonction sert juste à fixer les paramètres de la fonction daubechie_transform_recursive
             afin que son utilisation par la suite soit plus aisé. De ce fait, pour faire une transformée en 
             ondelette, nous n'aurons qu'à appeler cette fonction avec le signal renseigné en paramètre
         */
-        int indice=0;
-        Vector tab_somme=new([]);
-        Vector tab_soustraction=new([]);
-        return Daubechie_transform_recursive(signal,indice,tab_somme,tab_soustraction);
-    }
+    private Vector Daubechie_transform(Vector signal) => (signal.VecSize() < 2 || Math.Log2(signal.VecSize()) != (int)Math.Ceiling(Math.Log2(signal.VecSize())))?new([]):Daubechie_transform_recursive(signal,0,new([]),new([]));
 
     /*
         La fonction daubechie_transform_inverse_recursive permet de calculer la matrice de daubechie 
@@ -155,47 +171,55 @@ public class Daub_Waves // Transformée en ondelette de daubechie
 
     //Cette fonction permet de calculer la transformée en ondelette inverse
     private Vector Daubechie_transform_inverse(Vector z){
-        Vector result;
-        int indice_ligne = 0;
-        int indice_colonne = 0;
+        
+        Vector result = new([]);
 
-        if(z.VecSize()>2){
-            /*
-                Si nous sommes dans un cas où la longueur du signal est supérieur à 2 alors nous 
-                fixons les paramètres de la fonction daubechie_transform_inverse_recursive et
-                nous calculons la matrice de daubechie adéquate au signal. Enfin, nous retournons le
-                produit matriciel entre le signal et la matrice de daubechie.
-            */
-            Matrix A = new(new double[z.VecSize()/2,z.VecSize()]);
-            Matrix B = new(new double[z.VecSize()/2,z.VecSize()]);
-            Matrix daubechie_matrix = Daubechie_transform_inverse_recursive(z,indice_ligne,indice_colonne,A,B);
-            result = z.MatDot(daubechie_matrix);
-        }
-        else{
-            /*
-                Si la longueur du signal est égale à 2 nous concaténons le signal avec lui-même puis
-                nous répétons les mêmes opérations que dans la boucle précédente sur ce signal concaténé
-            */
-            Vector z2 = z.VecCon(z).VecCon(z);
-            Matrix A = new(new double[z2.VecSize()/2,z2.VecSize()]);
-            Matrix B = new(new double[z2.VecSize()/2,z2.VecSize()]);
-            Matrix daubechie_matrix = Daubechie_transform_inverse_recursive(z2,indice_ligne,indice_colonne,A,B);
-            result = z2.MatDot(daubechie_matrix).SubVec(0,2);
+        if(z.VecSize()>1 && Math.Log2(z.VecSize()) == (int)Math.Ceiling(Math.Log2(z.VecSize()))){
+            int indice_ligne = 0;
+            int indice_colonne = 0;
+            if(z.VecSize()>2){
+                /*
+                    Si nous sommes dans un cas où la longueur du signal est supérieur à 2 alors nous 
+                    fixons les paramètres de la fonction daubechie_transform_inverse_recursive et
+                    nous calculons la matrice de daubechie adéquate au signal. Enfin, nous retournons le
+                    produit matriciel entre le signal et la matrice de daubechie.
+                */
+                Matrix A = new(new double[z.VecSize()/2,z.VecSize()]);
+                Matrix B = new(new double[z.VecSize()/2,z.VecSize()]);
+                Matrix daubechie_matrix = Daubechie_transform_inverse_recursive(z,indice_ligne,indice_colonne,A,B);
+                result = z.MatDot(daubechie_matrix);
+            }
+            else{
+                /*
+                    Si la longueur du signal est égale à 2 nous concaténons le signal avec lui-même puis
+                    nous répétons les mêmes opérations que dans la boucle précédente sur ce signal concaténé
+                */
+                Vector z2 = z.VecCon(z).VecCon(z);
+                Matrix A = new(new double[z2.VecSize()/2,z2.VecSize()]);
+                Matrix B = new(new double[z2.VecSize()/2,z2.VecSize()]);
+                Matrix daubechie_matrix = Daubechie_transform_inverse_recursive(z2,indice_ligne,indice_colonne,A,B);
+                result = z2.MatDot(daubechie_matrix).SubVec(0,2);
+            }
         }
 
         return result;
     }
 
     private Vector Smooth_daubechie(Vector signal, int pourcentage_nb){
-        // Tout d'abord, nous calculons la transformée en ondelette du signal
-        Vector z=Daubechie_transform(signal);
-        /*
-            Puis nous mettons à 0 tous les éléments du signal transformée dont la valeur absolue 
-            est inférieur à un seuil arbitraire
-        */
-        Vector z_deb=z.MinSignal(0,(int)Math.Ceiling((double)pourcentage_nb*signal.VecSize()/100));
-        // Enfin nous retournons le signal débruité après avoir fait une transformée inverse
-        return Daubechie_transform_inverse(z_deb);
+        Vector ret = new([]);
+        if(signal.VecSize() > 1 && pourcentage_nb >= 0 && Math.Log2(signal.VecSize()) == (int)Math.Ceiling(Math.Log2(signal.VecSize()))){
+            // Tout d'abord, nous calculons la transformée en ondelette du signal
+            Vector z=Daubechie_transform(signal);
+            /*
+                Puis nous mettons à 0 tous les éléments du signal transformée dont la valeur absolue 
+                est inférieur à un seuil arbitraire
+            */
+            Vector z_deb=z.MinSignal(0,(int)Math.Ceiling((double)pourcentage_nb*signal.VecSize()/100));
+            // Enfin nous retournons le signal débruité après avoir fait une transformée inverse
+            ret = Daubechie_transform_inverse(z_deb);
+        }
+        
+        return ret;
     }
 
     // Cette fonction permet de faire une transformée en ondelette multiple. Elle est aussi récursive.
@@ -279,14 +303,19 @@ public class Daub_Waves // Transformée en ondelette de daubechie
 
     // Cette fonction permet de débruiter un signal à l'aide d'une transformée en ondelette multiple
     private Vector Smooth_daubechie_multi(Vector signal,int level,int pourcentage_nb){
-        // Tout d'abord, nous calculons la transformée en ondelette multiple du signal
-        Vector z=Transformee_daubechie_multi(signal,level);
-        /*
-            Puis nous mettons à 0 tous les éléments du signal transformée dont la valeur absolue 
-            est inférieur à un seuil arbitraire
-        */
-        Vector z_deb=z.MinSignal(0,(int)Math.Ceiling((double)pourcentage_nb*signal.VecSize()/100));
-        // Enfin nous retournons le signal débruité après avoir fait une transformée inverse
-        return Trans_daubechie_inverse(z_deb,level,new([]),0);
+        Vector ret = new([]);
+        if(signal.VecSize() >= 4 && level > 0 && pourcentage_nb >= 0 && Math.Log2(signal.VecSize()) == (int)Math.Ceiling(Math.Log2(signal.VecSize()))){
+            // Tout d'abord, nous calculons la transformée en ondelette multiple du signal
+            Vector z=Transformee_daubechie_multi(signal,level);
+            /*
+                Puis nous mettons à 0 tous les éléments du signal transformée dont la valeur absolue 
+                est inférieur à un seuil arbitraire
+            */
+            Vector z_deb=z.MinSignal(0,(int)Math.Ceiling((double)pourcentage_nb*signal.VecSize()/100));
+            // Enfin nous retournons le signal débruité après avoir fait une transformée inverse
+            ret = Trans_daubechie_inverse(z_deb,level,new([]),0);
+        }
+        
+        return ret;
     }
 }
